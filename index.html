@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>shareV8</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate">
+<meta http-equiv="Expires" content="Wed, 15 Dec 1993 16:00:00 GMT">
+<meta http-equiv="Expires" content="0">
+<meta name="format-detection" content="telephone=no">
+<meta name="screen-orientation" content="portrait">
+<meta name="x5-orientation" content="portrait">
+  <link rel="stylesheet" type="text/css" href="share/css/style.css">
+  <script type="text/javascript" src="vue/v2.4.0/vue.js"></script>
+</head>
+<body>
+<template id="player" >
+<div >
+  <div class="s-progress-wrapper" >
+        <div class="s-icon">
+            <div class="s-loading" v-if="waiting">
+                <span class="Rotation"></span>
+              </div>
+            <div  v-else>
+                <i  :class="playIcon" @click="startPlayOrPause" ></i>
+               <!--  <i class="s-icon-disable" v-else></i> -->
+            </div>
+        </div>
+        <div class="s-progress-bar-wrapper">
+          <div class="s-progress-bar" ref="progressBar" @click="progressClick" >
+            <div class="s-progress-bar-inner" :style="{width:timelineWidth}">
+              <div class="progress" ref="progress"></div>
+              <div class="progress-btn-wrapper" ref="progressBtn" @touchstart.prevent="progressTouchStart" @touchmove.prevent="progressTouchMove"
+                @touchend="progressTouchEnd">
+                <div class="progress-btn"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="s-time s-icon-right">
+          <span class="s-time-color">{{format(currentTime)}}</span> / {{format(duration)}}</div>
+  </div>
+</div>
+</template>
+<div id="s-container"  v-cloak>
+  <div>
+      <div v-for="(item,index) in m2">
+        <player :msg= "item" :index="index" :flag="'g1'"></player>
+      </div>
+              <div class="p229-list-wrap" >
+              </div>
+              <div class="chat-list">
+
+    <div class="chat-info"><!-- 文字 -->
+      <div class="s-comment">
+      <!-- 语音 -->
+      <ul  v-for="(msg,index) in msgList" ref="msgList">
+        <li  class="s-voice-wrap">
+      <player :msg= "msg" :index="index" :flag="'g2'"></player>
+      </li>
+    </ul>
+      xxxxx
+        </div>
+      </div>
+       <audio id="audio">
+        <source type="audio/mpeg">
+      </audio>   
+  </div>
+ </div>
+
+</div>
+</div>
+
+<!-- 注意 顺序 -->
+<script type="text/javascript" src="js/util.js"></script>
+<script type="text/javascript" src="js/share.js"></script>
+
+</body>
+</html>

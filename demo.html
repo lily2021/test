@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>shareV8</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate">
+<meta http-equiv="Expires" content="Wed, 15 Dec 1993 16:00:00 GMT">
+<meta http-equiv="Expires" content="0">
+<meta name="format-detection" content="telephone=no">
+<meta name="screen-orientation" content="portrait">
+<meta name="x5-orientation" content="portrait">
+<script type="text/javascript" src="vue/v2.4.0/vue.js"></script>
+<link rel="stylesheet" type="text/css" href="css/style1.css">
+</head>
+<body>
+<style>
+  .s-voice-wrap {
+    width: 96%;
+    margin: .24rem auto;
+    height: 1.568rem
+  }
+  .s-icon{width:1.44rem;height:1.44rem;}
+  @-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}
+  to{-webkit-transform:rotate(360deg)}
+  }
+  .s-loading{
+  width:1.26rem;height:1.26rem;
+    background: url(images/icon-play.png) no-repeat left center;background-size: cover;
+  }
+  .s-rotation{width:1.28rem;height:1.28rem;display:inline-block;background:url(images/icon-z.png) no-repeat left center;background-size:100%;-webkit-transform:rotate(360deg);animation:rotation 3s linear infinite;-moz-animation:rotation 3s linear infinite;-webkit-animation:rotation 3s linear infinite;-o-animation:rotation 3s linear infinite;background-size: cover}
+  .s-progress-wrapper{display:flex;width:90%;align-items: center;}
+  .s-progress-bar-inner {position: relative;top: 0;height: 6px;background: #ccc;border-radius: 6px}
+  .s-icon-right{text-align:right}
+  .s-icon-disable,.s-icon-pause,.s-icon-play{list-style:none;width:1.26rem;height:1.26rem;display:inline-block;}
+  .s-icon-play{background:url(images/icon-play.png) no-repeat left center;background-size:cover}
+  .s-icon-pause{background:url(images/icon-pause.png) no-repeat left center;background-size:cover}
+  .s-icon-disable{background:url(images/icon-play-disable.png) no-repeat left center;background-size:cover}
+  .s-time{color:#ccc;font-size:.256rem;padding-left:.36rem}
+  .s-time-color{color:#18c7a7}
+  .s-progress-bar-wrapper{flex:1}
+  .s-progress-bar{height:.48rem}
+  .s-progress{position:absolute;height:100%;background:#18c7a7;}
+  .s-progress-load{position:absolute;height:100%;background:#aaa; z-index: 2;}
+  .s-progress-btn-wrapper{position:absolute; z-index: 3;}
+  .s-progress-btn{position:relative;top:-.54rem;left:-.42rem;width:1.52rem;height:1.52rem;background:url(images/icon-btn.png) no-repeat center center;background-size:cover}
+  </style>
+<template id="player" >
+<div >
+  <div class="s-progress-wrapper" >
+        <div class="s-icon">
+            <div class="s-loading" v-if="waiting">
+                <span class="s-rotation"></span>
+              </div>
+            <div  v-else>
+                <i  :class="playIcon" @click="startPlayOrPause" ></i>
+               <!--  <i class="s-icon-disable" v-else></i> -->
+            </div>
+        </div>
+        <div class="s-progress-bar-wrapper">
+          <div class="s-progress-bar" ref="progressBar" @click="progressClick" >
+            <div class="s-progress-bar-inner">
+              <div class="s-progress" ref="progress"></div>
+              <div class="s-progress-load" ref="loadProgress"></div>
+              <div class="s-progress-btn-wrapper" ref="progressBtn" @touchstart.prevent="progressTouchStart" @touchmove.prevent="progressTouchMove"
+                @touchend="progressTouchEnd">
+                <div class="s-progress-btn"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="s-time s-icon-right">
+          <span class="s-time-color">{{format(currentTime)}}</span> / {{format(duration)}}</div>
+  </div>
+</div>
+</template>
+
+<!-- 实例 -->
+<div id="s-container"  v-cloak>
+  <div>
+      <div v-for="(item,index) in m2">
+        <player :msg= "item" :index="index" :flag="'g1'"></player>
+      </div>
+              <div class="p229-list-wrap" >
+              </div>
+              <div class="chat-list">
+
+    <div class="chat-info"><!-- 文字 -->
+      <div class="s-comment">
+      <!-- 语音 -->
+      <ul  >
+        <li  class="s-voice-wrap" v-for="(msg,index) in msgList" ref="msgList">
+      <player :msg= "msg" :index="index" :flag="'g2'"></player>
+      </li>
+    </ul>
+        </div>
+      </div>
+       <audio id="audio"  preload="none">
+        <source type="audio/mpeg">
+      </audio>   
+  </div>
+ </div>
+
+</div>
+</div><!-- audio js -->
+<script type="text/javascript">
+var elementStyle = document.createElement('div').style
+var vendor = (function () {
+    let transformNames = {
+        webkit: 'webkitTransform',
+        Moz: 'MozTransform',
+        O: 'OTransform',
+        ms: 'msTransform',
+        standard: 'transform'
+    }
+
+    for (var key in transformNames) {
+        if (elementStyle[transformNames[key]] !== undefined) {
+            return key
+        }
+    }
+
+    return false
+})()
+function prefixStyle(style) {
+    if (vendor === false) {
+        return false
+    }
+
+    if (vendor === 'standard') {
+        return style
+    }
+
+    return vendor + style.charAt(0).toUpperCase() + style.substr(1)
+}
+var transform = prefixStyle('transform')
+var audio = document.getElementById('audio')
+var current = {
+    uid: 0,
+}
+//console.log(state.url)
+var Player = Vue.extend({
+  template: '#player',
+  props: ['msg'],
+  data: function () {
+    return {
+      url: this.msg.url,
+      playing: false,
+      waiting: false,
+      duration: this.msg.duration, //音频时长
+      currentTime: 0,//音频当前时间
+      loadedTime: 0,
+      interval: null,//进度条interval，用于清除interval
+      loadeddata: null,//音频加载完毕事件，用于清除事件
+      loadstart: null,//音频开始加载事件，用于清除事件
+      controlList: {
+        unFixWidth: false
+      },
+      audio:{
+        buffered:null
+      }
+    }
+  },
+  computed: {
+    percent: function() {
+      if(this.currentTime >= this.duration) return 1
+      return this.currentTime / this.duration     
+    },
+    loadPercent() {
+        if (this.duration === 0) return 0
+        //if(this.loadedTime >= this.duration) return 1
+        return this.loadedTime / this.duration
+    },
+    playIcon: function () { //播放器按钮图标
+      return this.playing ? "s-icon-pause" : "s-icon-play"
+    },
+    showCurrentTime() { //播放器右侧显示的音频当前时间
+      return !this.currentTime || this.currentTime == 0 ? (parseInt(this.duration) > 60 ? '60' : parseInt(this.duration)) + '\"' : parseInt(this.currentTime) + '\"'
+    },
+    timelineWidth() {//大于60的时候给一个固定宽度
+      return this.duration > 60 ? '4.2rem' : 1 + (3.6 * parseInt(this.duration) / 60) + 'rem'
+    }
+  },
+  watch: {
+    percent(newPercent) {
+      if (newPercent >= 0 && !this.touch.initiated) {
+        var offsetWidth = newPercent * this.barWidth();
+        this._offset(offsetWidth)
+      }
+    },
+    loadPercent(newPercent) {
+      console.log('newPercent__' + newPercent)
+      if (newPercent >= 0 && !this.touch.initiated) {
+        var offsetWidth = newPercent * this.barWidth();
+       this.$refs.loadProgress.style.width = offsetWidth + 'px'
+      }
+    }
+  },
+  created: function () {
+    this.touch = {}
+    this.init()
+  },
+  methods: {
+    init: function () {
+      
+    },
+    startPlayOrPause(e) {
+      var that = this
+        if (this.playing) {
+          this.pausePlay()
+        } else {
+          if (this._uid == current.uid) {
+            this.startPlay()
+          } else {
+            current.uid = this._uid
+            audio.querySelector("source").src = this.url
+            this.waiting = true;
+            //加载音频，如果加载的音频不是这个item的音频，清除加载完毕的播放事件
+            this.loadstart = function () {
+              console.log(that)
+              if (that._uid != current.uid) {
+                console.log('clear')
+                that.waiting = false
+                that.playing = false
+                clearInterval(that.interval)
+                audio.removeEventListener("loadeddata",that.loadeddata)
+              }
+              console.log('loadstart1')
+            }
+
+            audio.addEventListener("loadstart", that.loadstart)
+
+            //音频加载完毕后，播放音频，启动进度条
+            this.loadeddata = function () {
+              console.log('loadeddata2')
+              that.duration = audio.duration
+              //audio.currentTime = that.currentTime
+              that.startPlay()
+            }
+            this.onLoadProgress = function() {
+              this.audio.buffered = audio.buffered;
+              console.log(this.audio.buffered)
+                 if (audio.buffered.length) {
+                 this.loadedTime = audio.buffered.end(this.audio.buffered.length - 1)
+                } else {
+                  this.loadedTime = 0
+                }
+               console.log("on-loadtime- "+this.audio.loadedTime)
+            },
+            audio.addEventListener("loadeddata", that.loadeddata)
+            audio.addEventListener('progress', that.onLoadProgress)
+            audio.load()
+          }
+        }
+    },
+    // 开始播放
+    startPlay() {
+      audio.play()
+      this.playing = true
+      this.waiting = false
+      this.progressInterval()
+    },
+    // 暂停
+    pausePlay() {
+      audio.pause()
+      this.playing = false
+
+      clearInterval(this.interval)
+    },
+    progressInterval() {
+      let that = this
+      this.interval = setInterval(function () {
+            that.currentTime = audio.currentTime || that.currentTime
+          that.duration = audio.duration || that.duration
+        if (that.currentTime >= that.duration) {//播放完毕
+          setTimeout(function(){
+            // percent=1 才清除
+            that.currentTime = 0
+          },20)
+          that.playing = false
+          clearInterval(that.interval)
+        }
+      }, 200)
+    },
+    progressTouchStart(e) {
+      this.touch.initiated = true
+      this.touch.startX = e.touches[0].pageX
+      this.touch.left = this.$refs.progress.clientWidth
+     
+    },
+    progressTouchMove(e) {
+      if (!this.touch.initiated) {
+        return
+      }
+      const deltaX = e.touches[0].pageX - this.touch.startX
+      const offsetWidth = Math.min(this.barWidth(), Math.max(0, this.touch.left + deltaX))
+      this._offset(offsetWidth)
+    },
+    progressTouchEnd() {
+      this.touch.initiated = false
+      this._triggerPercent()
+    },
+    progressClick(e) {
+      const rect = this.$refs.progressBar.getBoundingClientRect()
+      const offsetWidth = e.pageX - rect.left
+      this._offset(offsetWidth)
+      this._triggerPercent()
+    },
+    _triggerPercent() {
+      //var barWidth = this.$refs.progressBar.clientWidth - this.$refs.progressBtn.clientWidth
+        var percent = this.$refs.progress.clientWidth / this.barWidth()
+        this.currentTime = percent* this.duration
+        this.onProgressBarChange(percent)
+    },
+    onProgressBarChange(percent) {
+      const currentTime = this.duration * percent
+      audio.currentTime = currentTime
+        /*      if(!this.playing){//拖动完要不要立即播放
+                 this.startPlayOrPause()
+              }*/
+ 
+    },
+    _offset(offsetWidth) {
+      this.$refs.progress.style.width = offsetWidth + 'px'
+      this.$refs.progressBtn.style[transform] = "translate3d("+ offsetWidth +"px,0,0)"
+    },
+    barWidth(){
+      var barWidth
+      if(this.controlList.unFixWidth){
+        barWidth = this.duration > 60 ? '68' : 10 + (58 * parseInt(this.duration) / 60) 
+      }else{
+        barWidth = this.$refs.progressBar.clientWidth - (this.$refs.progressBtn.clientWidth/2)
+        
+      }
+      return barWidth
+    },
+    format(interval) {
+      interval = interval | 0
+      var minute = interval / 60 | 0
+      var second = this._pad(interval % 60)
+      return  minute +":"+ second
+    },
+    _pad(num, n = 2) {
+      var len = num.toString().length
+      while (len < n) {
+        num = '0' + num
+        len++
+      }
+      return num
+    }
+
+  }
+});
+</script>
+<!-- 注意 顺序 -->
+<script type="text/javascript" src="js/util-1.js"></script>
+<script type="text/javascript" src="js/share.js"></script>
+
+</body>
+</html>
